@@ -35,6 +35,16 @@ Patients were assigned to training, validation, calibration, and test sets for m
 
 UCTT-RP contains three main components.
 
+<p align="center">
+  <img src="docs/uctt_rp_workflow.png" alt="UCTT-RP framework overview" width="900">
+</p>
+
+**Figure 1. Overall architecture and analytical workflow of the UCTT-RP framework.**  
+(A) End-to-end deep survival architecture integrating tabular transformer-based feature representation and competing-risk modeling.  
+(B) Aalen-Johansen-based post-hoc recalibration of cumulative incidence functions and construction of calibrated upper predicted bounds.  
+(C) Model interpretation workflow using SHAP values to identify global and patient-level feature contributions.
+
+
 ### 1. Tabular Transformer Feature Representation
 
 Categorical and continuous clinical variables are processed using a tabular transformer architecture. Categorical variables are embedded using feature-specific column embeddings, while continuous variables are normalized and concatenated with contextualized embeddings.
