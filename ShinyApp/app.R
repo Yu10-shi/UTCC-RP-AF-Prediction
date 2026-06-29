@@ -38,8 +38,9 @@ load_model(MODEL_PATH)
 cat_features <- meta$categ_idx
 cont_features <- meta$cont_idx
 feature_names <- meta$feature_names
-cat_names <- feature_names[seq_along(cat_features)]
-cont_names <- feature_names[(length(cat_features) + 1):length(feature_names)]
+# Index by the actual 0-based metadata indices (robust even if not contiguous)
+cat_names <- feature_names[cat_features + 1L]
+cont_names <- feature_names[cont_features + 1L]
 duration_labels <- meta$duration_labels
 risk_names <- meta$risk_names
 
@@ -55,104 +56,8 @@ truncate_label <- function(x, max_len = 28) {
   ifelse(nchar(x) > max_len, paste0(substr(x, 1, max_len - 3), "..."), x)
 }
 
-# Top 20 important features shown in Manual entry mode
-TOP_FEATURES <- c(
-  "sex_imp", "demographics_age_index_ecg", "alkaline_phophatase_peri",
-  "hgb_peri", "cancer_any_icd10", "dyslipidemia_combined",
-  "ecg_resting_qtc", "creatinine_peri", "ecg_resting_hr",
-  "acei_arb_entresto", "copd_icd10", "beta_blocker_any_peri",
-  "ecg_resting_qrs", "ecg_resting_pr", "plt_peri",
-  "chloride_peri", "hypertension_icd10", "ccb_dihydro_peri",
-  "diuretic_loop_peri", "sodium_peri"
-)
 
-# Fixed defaults for the 58 Non_Top_Features (population means / most-common values)
-NON_TOP_DEFAULTS <- list(
-  # continuous — population means from Participant Characteristics
-  hct_peri                        = 0.42,
-  rdw_peri                        = 13.48,
-  wbc_peri                        = 8.62,
-  inr_peri                        = 1.07,
-  ptt_peri                        = 31.70,
-  esr_peri                        = 17.44,
-  crp_high_sensitive_peri         = 9.43,
-  albumin_peri                    = 36.93,
-  alanine_transaminase_peri       = 32.86,
-  aspartate_transaminase_peri     = 47.09,
-  bilirubin_total_peri            = 10.79,
-  bilirubin_direct_peri           = 6.69,
-  urea_peri                       = 5.64,
-  urine_alb_cr_ratio_peri         = 12.14,
-  potassium_peri                  = 4.04,
-  ck_peri                         = 304.34,
-  troponin_t_hs_peri_highest      = 231.55,
-  glucose_fasting_peri_highest    = 6.05,
-  glucose_random_peri_highest     = 7.18,
-  hga1c_peri_highest              = 6.14,
-  tchol_peri_highest              = 5.06,
-  ldl_peri_highest                = 2.95,
-  hdl_peri_lowest                 = 1.28,
-  tg_peri_highest                 = 1.90,
-  iron_peri                       = 15.26,
-  tibc_peri                       = 56.88,
-  ferritin_peri                   = 194.40,
-  tsh_peri                        = 2.42,
-  # categorical — all 0 (most common value)
-  diabetes_combined                              = 0L,
-  dcm_icd10                                     = 0L,
-  hcm_icd10                                     = 0L,
-  myocarditis_icd10_prior                       = 0L,
-  pericarditis_icd10_prior                      = 0L,
-  aortic_aneurysm_icd10                         = 0L,
-  aortic_dissection_icd10_prior                 = 0L,
-  pulmonary_htn_icd10                           = 0L,
-  amyloid_icd10                                 = 0L,
-  obstructive._sleep_apnea_icd10                = 0L,
-  hyperthyroid_icd10                            = 0L,
-  hypothyroid_icd10                             = 0L,
-  rheumatoid_arthritis_icd10                    = 0L,
-  sle_icd10                                     = 0L,
-  sarcoid_icd10                                 = 0L,
-  event_cv_hf_admission_icd10_prior             = 0L,
-  event_cv_ep_vt_any_icd10_prior                = 0L,
-  event_cv_ep_sca_survived_icd10_cci_prior      = 0L,
-  event_cv_cns_stroke_ischemic_icd10_prior      = 0L,
-  event_cv_cns_stroke_hemorrh_icd10_prior       = 0L,
-  event_cv_cns_tia_icd10_prior                  = 0L,
-  pci_prior                                     = 0L,
-  cabg_prior                                    = 0L,
-  transplant_heart_cci_prior                    = 0L,
-  lvad_cci_prior                                = 0L,
-  pacemaker_permanent_cci_prior                 = 0L,
-  crt_cci_prior                                 = 0L,
-  icd_cci_prior                                 = 0L,
-  ecg_resting_paced                             = 0L,
-  ecg_resting_bigeminy                          = 0L,
-  ecg_resting_LBBB                              = 0L,
-  ecg_resting_RBBB                              = 0L,
-  ecg_resting_incomplete_LBBB                   = 0L,
-  ecg_resting_incomplete_RBBB                   = 0L,
-  ecg_resting_LAFB                              = 0L,
-  ecg_resting_LPFB                              = 0L,
-  ecg_resting_bifascicular_block                = 0L,
-  ecg_resting_trifascicular_block               = 0L,
-  ecg_resting_intraventricular_conduction_delay = 0L,
-  anti_platelet_oral_non_asa_any_peri           = 0L,
-  anti_coagulant_oral_any_peri                  = 0L,
-  nitrates_any_peri                             = 0L,
-  ivabradine_peri                               = 0L,
-  ccb_non_dihydro_peri                          = 0L,
-  diuretic_thiazide_peri                        = 0L,
-  diuretic_low_ceiling_non_thiazide_peri        = 0L,
-  diuretic_mra_peri                             = 0L,
-  anti_arrhythmic_any_peri                      = 0L,
-  digoxin_peri                                  = 0L,
-  amyloid_therapeutics_diflunisal_peri          = 0L,
-  smoking_cessation_oral_peri                   = 0L,
-  acute_mi_angina_other                         = 0L
-)
-
-example_path <- "../df_imputed_synthetic.csv"
+example_path <- "../data/df_imputed_synthetic.csv"
 if (file.exists(example_path)) {
   tmp <- read.csv(example_path, nrows = 5, check.names = FALSE)
   if (all(feature_names %in% names(tmp))) {
@@ -182,36 +87,20 @@ ui <- navbarPage(
           wellPanel(
             style = "background: #f8f9fa; border: 1px solid #dee2e6;",
             h4("Data Entry", style = "margin-top:0;font-weight:bold"),
-            radioButtons(
-              "input_mode", "Input method:",
-              choices = c("Manual entry", "Upload CSV"),
-              inline = TRUE
+            tags$hr(),
+            fileInput("csv_file", "Upload CSV (one row per individual)", accept = ".csv"),
+            fluidRow(
+              column(4, numericInput("cursor_index", "Current row:", value = 1, min = 1, max = 1, step = 1)),
+              column(4, actionButton("cursor_up", "▲", title = "Previous row", style = "margin-top: 25px;")),
+              column(4, actionButton("cursor_down", "▼", title = "Next row", style = "margin-top: 25px;"))
             ),
-            conditionalPanel(
-              condition = "input.input_mode == 'Upload CSV'",
-              tags$hr(),
-              fileInput("csv_file", "CSV with required columns", accept = ".csv"),
-              fluidRow(
-                column(4, numericInput("cursor_index", "Current row:", value = 1, min = 1, max = 1, step = 1)),
-                column(4, actionButton("cursor_up", "▲", title = "Previous row", style = "margin-top: 25px;")),
-                column(4, actionButton("cursor_down", "▼", title = "Next row", style = "margin-top: 25px;"))
-              ),
-              helpText("Select a row to view its features and run prediction for that individual. Use arrows or type a number."),
-              tags$hr()
-            ),
-            conditionalPanel(
-              condition = "input.input_mode == 'Manual entry'",
-              tags$hr()
-            ),
-            h5("Features", style = "margin-top:8px;font-weight:bold"),
-            helpText("Label truncated; hover for full name. Integer codes for categorical.", style = "font-size:0.85em;"),
+            helpText("Select a row to view/edit its features and run prediction for that individual. Use arrows or type a number."),
+            tags$hr(),
+            h5("Features (all 78 — editable)", style = "margin-top:8px;font-weight:bold"),
+            helpText("Values are seeded from the selected CSV row; any missing value is filled with 0. Label truncated; hover for full name. Integer codes for categorical.", style = "font-size:0.85em;"),
             div(
-              style = "overflow-x: hidden;",
+              style = "max-height: 780px; overflow-y: auto; overflow-x: hidden; border: 1px solid #e0e0e0; border-radius: 4px; padding: 6px; background: #ffffff;",
               uiOutput("manual_inputs_ui")
-            ),
-            conditionalPanel(
-              condition = "input.input_mode == 'Manual entry'",
-              actionButton("load_example", "Load example values", class = "btn btn-default btn-sm", style = "margin-top:8px;")
             )
           )
         ),
@@ -281,26 +170,27 @@ ui <- navbarPage(
         h5("How to use this 3-panel interface", style = "font-weight:bold"),
         h6("Panel 1: Data Entry", style = "font-weight:bold"),
         tags$ul(
-          tags$li("Choose input mode: Manual entry or Upload CSV."),
-          tags$li("Manual entry: only the top 20 most important features are shown as inputs. The remaining 58 features are automatically set to their population mean values (continuous) or most common values (categorical) from the study cohort — this simplifies data entry while still providing a complete 78-feature vector to the model. Labels are shortened and show full names on hover. Use Load example values to populate fields for testing."),
-          tags$li("Upload CSV: upload a CSV with required columns (one row per individual). Select Current row to view that row's features; Run Prediction uses exactly that selected row.")
+          tags$li("Upload a CSV (one row per individual) with the 78 feature columns. Select Current row to load that individual's values."),
+          tags$li("All 78 features are shown as editable fields in a scrollable list, seeded from the selected row. You can edit any value before running the prediction."),
+          tags$li("Missing data is handled automatically: any blank/NA cell, or any required column absent from the CSV, is filled with 0, and a notification tells you how many values were filled."),
+          tags$li("Labels are shortened and show the full name on hover. Categorical features use integer codes.")
         ),
         h6("Panel 2: Prediction Output", style = "font-weight:bold"),
         tags$ul(
           tags$li("Choose outcome: AF (default) or All cause death."),
           tags$li("Click Run Prediction to generate outputs."),
           tags$li("Both event probability and survival are shown: two plots and one table with columns Duration, Event probability, and Survival."),
-          tags$li("In CSV mode, Run Prediction predicts for the selected row only; change the row and click Run Prediction again for another individual.")
+          tags$li("Run Prediction predicts for the current record only; change the row (or edit fields) and click Run Prediction again for another individual.")
         ),
         h6("Panel 3: Feature Importance", style = "font-weight:bold"),
         tags$ul(
           tags$li("Test-case level: shows which features most influence this individual's prediction."),
-          tags$li("Uses the same patient data as the last Run Prediction (current row or manual entry)."),
+          tags$li("Uses the same patient data as the last Run Prediction (the current record's editable fields)."),
           tags$li("Importance metric: Overall (cumulative risk, default), Last bin, or a specific bin."),
           tags$li(tags$strong("Compute Importance does NOT run automatically after Run Prediction."), " You must click the Compute Importance button manually each time you want importance results."),
           tags$li(tags$strong("Importance is outcome-specific."), " To get importance for AF: select AF in the Outcome selector (Panel 2) and click Compute Importance. To get importance for All cause death: switch the Outcome selector to All cause death and click Compute Importance again. Each outcome produces different importance scores."),
           tags$li("Importance resets automatically after each Run Prediction — you must click Compute Importance again to see updated results."),
-          tags$li("Requires reference data: CSV mode with 2+ rows (other rows used as reference), or example_input.csv for manual mode."),
+          tags$li("Requires reference data: a CSV with 2+ rows (other rows used as reference), or example_input.csv as a fallback."),
           tags$li("Save importance (CSV): downloads Feature and Importance columns.")
         ),
         tags$hr(),
@@ -315,9 +205,9 @@ ui <- navbarPage(
         tags$ul(
           tags$li("CSV upload limit is set to 100 MB."),
           tags$li("Categorical values should use integer codes aligned with the model training schema."),
-          tags$li("In CSV mode, if Current row is out of range (e.g., greater than the number of rows in the file), the app shows a warning and adjusts to a valid row."),
+          tags$li("If Current row is out of range (e.g., greater than the number of rows in the file), the app shows a warning and adjusts to a valid row."),
           tags$li("Feature importance uses permutation (sensitivity): each feature is replaced with a random value from the reference; importance = |change in prediction|."),
-          tags$li("In Manual entry mode, importance is computed for the top 20 features only; the remaining 58 features are held at their population mean/default values. In CSV mode, importance is computed for all 78 features from the uploaded patient record.")
+          tags$li("Importance is computed for all 78 features of the current record.")
         )
       )
     )
@@ -330,10 +220,10 @@ ui <- navbarPage(
 
 server <- function(input, output, session) {
 
-  # Data Entry: Top 20 features only in Manual mode
+  # Data Entry: all 78 features, editable (seeded from selected CSV row)
   output$manual_inputs_ui <- renderUI({
-    top_cat <- TOP_FEATURES[TOP_FEATURES %in% cat_names]
-    top_cont <- TOP_FEATURES[TOP_FEATURES %in% cont_names]
+    top_cat <- cat_names
+    top_cont <- cont_names
     tagList(
       lapply(top_cat, function(feat) {
         fluidRow(
@@ -384,20 +274,43 @@ server <- function(input, output, session) {
     )
   })
 
+  # ── Server-side source of truth for the 78 feature values ──────────────────
+  # Predictions & importance read THIS named list, not the browser inputs, so
+  # that loading a CSV row / switching rows and immediately running a prediction
+  # cannot read stale input values (updateNumericInput round-trips to the client
+  # asynchronously). sync_csv_to_inputs() writes here synchronously.
+  .init_feature_vals <- setNames(
+    lapply(feature_names, function(f) {
+      v <- example_defaults[[f]] %||% 0
+      if (f %in% cat_names) as.integer(v) else as.numeric(v)
+    }),
+    feature_names
+  )
+  feature_vals <- reactiveVal(.init_feature_vals)
+
+  # Capture user edits to the editable fields back into the source of truth.
+  # Depends only on the inputs (feature_vals read is isolated) so it never
+  # re-triggers itself; the echo of sync's updateNumericInput calls is a no-op
+  # here because the values already match feature_vals.
+  observe({
+    cur <- isolate(feature_vals())
+    if (is.null(cur)) return()
+    newvals <- cur
+    changed <- FALSE
+    for (feat in feature_names) {
+      iv <- input[[paste0("feat_", feat)]]
+      if (is.null(iv)) next
+      iv <- if (feat %in% cat_names) as.integer(iv) else as.numeric(iv)
+      if (length(iv) == 0 || is.na(iv)) next
+      if (!isTRUE(iv == cur[[feat]])) { newvals[[feat]] <- iv; changed <- TRUE }
+    }
+    if (changed) feature_vals(newvals)
+  })
+
   manualData <- reactive({
-    # Read the 20 top feature inputs
-    top_vals <- setNames(
-      lapply(TOP_FEATURES, function(feat) {
-        v <- input[[paste0("feat_", feat)]] %||% 0
-        if (feat %in% cat_names) as.integer(v) else as.numeric(v)
-      }),
-      TOP_FEATURES
-    )
-    # Merge with non-top defaults
-    all_vals <- c(top_vals, NON_TOP_DEFAULTS)
-    # Build data.frame in feature_names order
+    vals <- feature_vals()
     df <- as.data.frame(
-      lapply(feature_names, function(f) all_vals[[f]]),
+      lapply(feature_names, function(f) vals[[f]]),
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
@@ -415,18 +328,23 @@ server <- function(input, output, session) {
       error = function(e) NULL
     )
     shiny::validate(need(!is.null(df), "Failed to read CSV"))
+    # Missing columns are no longer a hard error: add them as NA so they get
+    # filled with 0 downstream, and tell the user which ones were absent.
     missing_cols <- setdiff(feature_names, names(df))
-    shiny::validate(
-      need(length(missing_cols) == 0,
-           paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
-    )
+    if (length(missing_cols) > 0) {
+      for (mc in missing_cols) df[[mc]] <- NA
+      showNotification(
+        sprintf("CSV is missing %d required column(s); they will be filled with 0: %s",
+                length(missing_cols), paste(missing_cols, collapse = ", ")),
+        type = "warning", duration = 8
+      )
+    }
     csv_store(df)  # store for prediction (one-time read)
     df
   })
 
   # Cursor index, validated against CSV row count
   cursor_index_valid <- reactive({
-    if (input$input_mode != "Upload CSV") return(1L)
     req(input$csv_file)
     df <- csv_data()
     n <- nrow(df)
@@ -436,34 +354,8 @@ server <- function(input, output, session) {
     cur
   })
 
-  # On mode switch: refresh everything, clear results, reset state
-  observeEvent(input$input_mode, {
-    rv$result <- NULL
-    rv$cp_result <- NULL
-    rv$nrows <- 0
-    rv$importance <- NULL
-    csv_store(NULL)
-    if (input$input_mode == "Manual entry") {
-      for (feat in TOP_FEATURES) {
-        val <- example_defaults[[feat]] %||% 0
-        if (feat %in% cat_names) {
-          updateNumericInput(session, paste0("feat_", feat), value = as.integer(val))
-        } else {
-          updateNumericInput(session, paste0("feat_", feat), value = as.numeric(val))
-        }
-      }
-    } else {
-      updateNumericInput(session, "cursor_index", value = 1, min = 1, max = 1)
-      # Sync features when switching to CSV (if file already loaded)
-      tryCatch({
-        if (!is.null(input$csv_file)) sync_csv_to_inputs()
-      }, error = function(e) NULL)
-    }
-  })
-
   # Update cursor_index max and sync features when CSV loads
   observeEvent(csv_data(), {
-    if (input$input_mode != "Upload CSV") return()
     df <- csv_data()
     n <- nrow(df)
     cur <- suppressWarnings(as.integer(input$cursor_index %||% 1))
@@ -473,27 +365,20 @@ server <- function(input, output, session) {
     sync_csv_to_inputs()  # Refresh feature display for current row
   }, ignoreInit = TRUE)
 
-  # cursor_row(): single 1-row data.frame for currently selected row (CSV mode) or manual inputs
+  # cursor_row(): single 1-row data.frame from the editable feature fields
   cursor_row <- reactive({
-    if (input$input_mode == "Upload CSV") {
-      req(input$csv_file)
-      idx <- cursor_index_valid()
-      if (is.null(idx)) return(NULL)  # out of range
-      df <- csv_data()
-      df <- df[, feature_names, drop = FALSE]
-      row <- df[idx, , drop = FALSE]
-    } else {
-      row <- manualData()
-      names(row) <- feature_names
-    }
+    # The 78 editable fields are the source of truth (seeded from the CSV row,
+    # then possibly edited by the user).
+    row <- manualData()
+    names(row) <- feature_names
     row[, cat_names] <- lapply(row[, cat_names, drop = FALSE], function(x) as.integer(as.character(x) %||% 0))
     row[, cont_names] <- lapply(row[, cont_names, drop = FALSE], function(x) as.numeric(as.character(x) %||% 0))
     row
   })
 
-  # Sync feature entries when CSV loads or cursor changes
+  # Seed the 78 editable feature fields from the selected CSV row.
+  # Missing / blank cells are filled with 0 and the user is told how many.
   sync_csv_to_inputs <- function() {
-    if (input$input_mode != "Upload CSV") return()
     if (is.null(input$csv_file)) return()
     df <- tryCatch(csv_data(), error = function(e) NULL)
     if (is.null(df) || nrow(df) == 0) return()
@@ -507,45 +392,34 @@ server <- function(input, output, session) {
       return()
     }
     row <- df[cur, feature_names, drop = FALSE]
-    for (feat in cat_names) {
+    missing <- 0L
+    vals <- setNames(vector("list", length(feature_names)), feature_names)
+    for (feat in feature_names) {
       val <- row[[feat]]
       if (is.factor(val)) val <- as.character(val)
-      updateNumericInput(session, paste0("cat_", feat), value = as.integer(suppressWarnings(as.numeric(val)) %||% 0))
+      num <- suppressWarnings(as.numeric(val))
+      if (length(num) == 0 || is.na(num)) { num <- 0; missing <- missing + 1L }
+      num <- if (feat %in% cat_names) as.integer(num) else as.numeric(num)
+      vals[[feat]] <- num
+      updateNumericInput(session, paste0("feat_", feat), value = num)
     }
-    for (feat in cont_names) {
-      val <- row[[feat]]
-      if (is.factor(val)) val <- as.character(val)
-      updateNumericInput(session, paste0("cont_", feat), value = as.numeric(suppressWarnings(as.numeric(val)) %||% 0))
+    feature_vals(vals)  # write the source of truth synchronously (no client round-trip)
+    if (missing > 0) {
+      showNotification(sprintf("Row %d has %d missing value(s); filled with 0.", cur, missing),
+                       type = "warning", duration = 5)
     }
   }
 
-  observeEvent(csv_data(), sync_csv_to_inputs(), ignoreInit = TRUE)
+  # (csv load already calls sync_csv_to_inputs above; only re-sync on row change)
   observeEvent(input$cursor_index, sync_csv_to_inputs(), ignoreInit = TRUE)
 
-  observeEvent(input$load_example, {
-    for (feat in TOP_FEATURES) {
-      val <- example_defaults[[feat]] %||% 0
-      if (feat %in% cat_names) {
-        updateNumericInput(session, paste0("feat_", feat), value = as.integer(val))
-      } else {
-        updateNumericInput(session, paste0("feat_", feat), value = as.numeric(val))
-      }
-    }
-    # Loading example values = new data entry: stale both panels
-    rv$result <- NULL
-    rv$cp_result <- NULL
-    rv$importance <- NULL
-  })
-
-  # Up/down buttons for row selection (CSV mode)
+  # Up/down buttons for row selection
   observeEvent(input$cursor_up, {
-    if (input$input_mode != "Upload CSV") return()
     cur <- suppressWarnings(as.integer(input$cursor_index %||% 1))
     if (is.na(cur) || cur <= 1) return()
     updateNumericInput(session, "cursor_index", value = cur - 1L)
   })
   observeEvent(input$cursor_down, {
-    if (input$input_mode != "Upload CSV") return()
     df <- tryCatch(csv_data(), error = function(e) NULL)
     if (is.null(df) || nrow(df) == 0) return()
     cur <- suppressWarnings(as.integer(input$cursor_index %||% 1))
@@ -553,34 +427,24 @@ server <- function(input, output, session) {
     updateNumericInput(session, "cursor_index", value = cur + 1L)
   })
 
-  # CSV mode: cursor change → stale both panels
+  # Cursor change → stale both panels
   observeEvent(input$cursor_index, {
-    if (input$input_mode == "Upload CSV") {
-      rv$result <- NULL
-      rv$cp_result <- NULL
-      rv$importance <- NULL
-    }
+    rv$result <- NULL
+    rv$cp_result <- NULL
+    rv$importance <- NULL
   }, ignoreInit = TRUE)
 
-  # Manual mode: any feature input change → stale both panels
+  # Any feature edit → stale both panels
   observeEvent(manualData(), {
-    if (input$input_mode == "Manual entry") {
-      rv$result <- NULL
-      rv$cp_result <- NULL
-      rv$importance <- NULL
-    }
+    rv$result <- NULL
+    rv$cp_result <- NULL
+    rv$importance <- NULL
   }, ignoreInit = TRUE)
 
-  # Input df for prediction: single row (selected row in CSV mode, manual in Manual mode)
+  # Input df for prediction: the single row currently in the editable fields
   input_df <- reactive({
-    if (input$input_mode == "Upload CSV") {
-      row <- cursor_row()  # exactly the selected row
-      if (is.null(row) || nrow(row) == 0) return(NULL)
-      df <- row
-    } else {
-      df <- manualData()
-      names(df) <- feature_names
-    }
+    df <- manualData()
+    names(df) <- feature_names
     # Robust conversion: handle factor, character, NA
     for (f in cat_names) {
       v <- df[[f]]
@@ -651,21 +515,16 @@ server <- function(input, output, session) {
 
   # Reference data for permutation importance: sample replacement values from here
   reference_df <- reactive({
-    if (input$input_mode == "Upload CSV" && !is.null(input$csv_file)) {
+    ref <- NULL
+    if (!is.null(input$csv_file)) {
       df <- tryCatch(csv_data(), error = function(e) NULL)
-      if (is.null(df) || nrow(df) == 0) return(NULL)
-      idx <- cursor_index_valid()
-      if (is.null(idx)) return(NULL)
-      # Exclude current row so we sample from other individuals
-      if (nrow(df) > 1) {
-        ref <- df[-idx, feature_names, drop = FALSE]
-      } else {
-        ref <- NULL  # single row: need external reference
+      if (!is.null(df) && nrow(df) > 1) {
+        idx <- cursor_index_valid()
+        # Exclude current row so we sample from other individuals
+        if (!is.null(idx)) ref <- df[-idx, feature_names, drop = FALSE]
       }
-    } else {
-      ref <- NULL
     }
-    # Manual mode or single-row CSV: try multiple paths for reference
+    # Single-row CSV (or none): fall back to example_input.csv for reference
     if (is.null(ref) || nrow(ref) == 0) {
       ref_paths <- c(
         "example_input.csv",
@@ -691,8 +550,17 @@ server <- function(input, output, session) {
     rv$result <- NULL  # Clear previous result first to avoid stale/crash state
     rv$cp_result <- NULL
     err_msg <- NULL
-    if (input$input_mode == "Upload CSV" && is.null(input$csv_file)) {
+    if (is.null(input$csv_file)) {
       showNotification("Please upload a CSV file first.", type = "error", duration = 5)
+      return()
+    }
+    csv_now <- tryCatch(csv_data(), error = function(e) NULL)
+    if (is.null(csv_now) || nrow(csv_now) < 1) {
+      showNotification("CSV could not be read or is empty. Please re-upload.", type = "error", duration = 6)
+      return()
+    }
+    if (is.null(cursor_index_valid())) {
+      showNotification("Current row is out of range. Pick a valid row.", type = "error", duration = 6)
       return()
     }
     df <- tryCatch(
@@ -705,8 +573,7 @@ server <- function(input, output, session) {
     if (is.null(df) || nrow(df) < 1) {
       showNotification(
         if (nzchar(err_msg %||% "")) paste("Error loading data:", err_msg)
-        else if (input$input_mode == "Upload CSV") "No row selected or row out of range. Check Current row."
-        else "No rows to predict. Check your input.",
+        else "No row selected or row out of range. Check Current row.",
         type = "error", duration = 8
       )
       return()
@@ -718,7 +585,7 @@ server <- function(input, output, session) {
       return()
     }
     if (any(is.na(x_cat)) || any(is.na(x_cont))) {
-      showNotification("Data contains NA values. Please check your CSV or manual entries.", type = "error", duration = 5)
+      showNotification("Data contains NA values. Please check your CSV.", type = "error", duration = 5)
       return()
     }
     meta_path_abs <- tryCatch(normalizePath("model_meta.json", mustWork = TRUE), error = function(e) NULL)
@@ -727,7 +594,7 @@ server <- function(input, output, session) {
       return()
     }
 
-    row_info <- if (input$input_mode == "Upload CSV") paste("row", input$cursor_index %||% 1) else "1 row"
+    row_info <- paste("row", input$cursor_index %||% 1)
     showNotification(paste("Running prediction for", row_info, "..."), type = "message", duration = 2)
     res <- tryCatch(
       {
@@ -778,22 +645,43 @@ server <- function(input, output, session) {
     if (is.null(df) || nrow(df) == 0) return(NULL)
     out <- df[, feature_names, drop = FALSE]
     rownames(out) <- NULL
-    for (f in cat_names) out[[f]] <- as.integer(suppressWarnings(as.numeric(as.character(out[[f]]))) %||% 0L)
-    for (f in cont_names) out[[f]] <- as.numeric(suppressWarnings(as.numeric(as.character(out[[f]]))) %||% 0)
+    # Fill NA per cell (not per column): a single NA must not zero the whole
+    # column — that would corrupt the multi-row permutation reference.
+    for (f in cat_names) {
+      z <- suppressWarnings(as.numeric(as.character(out[[f]]))); z[is.na(z)] <- 0
+      out[[f]] <- as.integer(z)
+    }
+    for (f in cont_names) {
+      z <- suppressWarnings(as.numeric(as.character(out[[f]]))); z[is.na(z)] <- 0
+      out[[f]] <- as.numeric(z)
+    }
     out
   }
 
   # Compute permutation importance for the current sample (same row sent to prediction)
   observeEvent(input$compute_importance, {
     rv$importance <- NULL
+    if (is.null(input$csv_file)) {
+      showNotification("Please upload a CSV file first.", type = "error", duration = 5)
+      return()
+    }
+    csv_now <- tryCatch(csv_data(), error = function(e) NULL)
+    if (is.null(csv_now) || nrow(csv_now) < 1) {
+      showNotification("CSV could not be read or is empty. Please re-upload.", type = "error", duration = 6)
+      return()
+    }
+    if (is.null(cursor_index_valid())) {
+      showNotification("Current row is out of range. Pick a valid row.", type = "error", duration = 6)
+      return()
+    }
     test_row <- tryCatch(sanitize_for_python(cursor_row()), error = function(e) NULL)
     ref <- tryCatch(sanitize_for_python(reference_df()), error = function(e) NULL)
     if (is.null(test_row) || nrow(test_row) == 0) {
-      showNotification("No sample to analyze. Enter features or select a row.", type = "error", duration = 5)
+      showNotification("No sample to analyze. Select a valid row.", type = "error", duration = 5)
       return()
     }
     if (is.null(ref) || nrow(ref) < 1) {
-      showNotification("No reference data for permutation. Use CSV mode (multi-row) or add example_input.csv.", type = "error", duration = 6)
+      showNotification("No reference data for permutation. Upload a multi-row CSV, or add example_input.csv for reference.", type = "error", duration = 6)
       return()
     }
     meta_path_abs <- tryCatch(
@@ -813,21 +701,12 @@ server <- function(input, output, session) {
     time_bin <- suppressWarnings(as.integer(input$importance_time_bin %||% "-2"))
     if (is.na(time_bin)) time_bin <- -2L
 
-    # Determine features to permute based on input mode (14.4)
-    if (input$input_mode == "Manual entry") {
-      features_to_permute <- as.list(TOP_FEATURES)
-      non_top_defaults_py <- NON_TOP_DEFAULTS
-    } else {
-      features_to_permute <- as.list(feature_names)  # all 78
-      non_top_defaults_py <- list()
-    }
-
-    # Mode-aware notification message (14.5)
-    n_passes <- if (input$input_mode == "Manual entry") 20L else 78L
-    scope_msg <- if (input$input_mode == "Manual entry") "top features only" else "all features"
+    # Importance is always computed over all 78 features
+    features_to_permute <- as.list(feature_names)
+    non_top_defaults_py <- list()
 
     showNotification(
-      paste0("Computing feature importance (", n_passes, " passes, ", scope_msg, ")..."),
+      paste0("Computing feature importance (", length(feature_names), " passes, all features)..."),
       type = "message", duration = 3
     )
     imp <- tryCatch(
@@ -856,11 +735,7 @@ server <- function(input, output, session) {
   display_row_idx <- reactive({
     req(rv$result)
     num_rows <- dim(rv$result$prob)[1]
-    idx <- if (input$input_mode == "Upload CSV") {
-      as.integer(input$cursor_index %||% 1)
-    } else {
-      1L
-    }
+    idx <- as.integer(input$cursor_index %||% 1)
     max(1, min(idx, num_rows))
   })
 
@@ -902,15 +777,20 @@ server <- function(input, output, session) {
     )
   })
 
-  # Shared helper: build x-axis labels and title
+  # Shared helper: x-axis breaks + labels. Show at most ~10 evenly spaced ticks
+  # so labels stay legible even when the model emits many bins (e.g. 30).
   .xaxis <- function(n_bins, mode) {
+    step   <- max(1L, ceiling(n_bins / 10))
+    breaks <- seq(1L, n_bins, by = step)
+    denom  <- max(1L, n_bins - 1L)
     if (isTRUE(mode == "year")) {
       list(
-        labels = sapply(seq_len(n_bins) - 1L, function(i) round(i / (n_bins - 1) * 15.0, 1)),
+        breaks = breaks,
+        labels = round((breaks - 1L) / denom * 15.0, 1),
         title  = "Follow-up (years)"
       )
     } else {
-      list(labels = as.character(seq_len(n_bins)), title = "Bin")
+      list(breaks = breaks, labels = as.character(breaks), title = "Bin")
     }
   }
 
@@ -925,7 +805,7 @@ server <- function(input, output, session) {
     p <- ggplot(df_plot, aes(x = idx, y = Event_probability)) +
       geom_line(color = "steelblue") +
       geom_point(color = "steelblue") +
-      scale_x_continuous(breaks = df_plot$idx, labels = xa$labels) +
+      scale_x_continuous(breaks = xa$breaks, labels = xa$labels) +
       labs(title = paste(cur$risk_name, "- Event probability"),
            x = xa$title, y = "Event probability") +
       theme_minimal() +
@@ -954,7 +834,7 @@ server <- function(input, output, session) {
     p <- ggplot(df_plot, aes(x = idx, y = Survival)) +
       geom_line(color = "steelblue") +
       geom_point(color = "steelblue") +
-      scale_x_continuous(breaks = df_plot$idx, labels = xa$labels) +
+      scale_x_continuous(breaks = xa$breaks, labels = xa$labels) +
       labs(title = paste(cur$risk_name, "- Survival"),
            x = xa$title, y = "Survival") +
       theme_minimal() +
@@ -1011,7 +891,7 @@ server <- function(input, output, session) {
       req(rv$result)
       cur <- current_prediction_df()
       risk <- gsub("[^A-Za-z0-9]+", "_", tolower(cur$risk_name))
-      paste0("prediction_", risk, "_row_", cur$row_idx, ".csv")
+      paste0("prediction_", risk, "_row_", input$cursor_index %||% 1, ".csv")
     },
     content = function(file) {
       req(rv$result)
@@ -1027,7 +907,7 @@ server <- function(input, output, session) {
       req(rv$result)
       cur <- current_prediction_df()
       risk <- gsub("[^A-Za-z0-9]+", "_", tolower(cur$risk_name))
-      paste0("prediction_curves_", risk, "_row_", cur$row_idx, ".png")
+      paste0("prediction_curves_", risk, "_row_", input$cursor_index %||% 1, ".png")
     },
     content = function(file) {
       req(rv$result)
@@ -1068,15 +948,10 @@ server <- function(input, output, session) {
     df
   })
 
-  # Mode-aware scope note for Feature Importance panel (14.6)
+  # Scope note for Feature Importance panel
   output$importance_scope_note <- renderUI({
-    if (input$input_mode == "Manual entry") {
-      helpText("Scope: top 20 features; others held at population means.",
-               style = "font-size:0.82em; color:#666; font-style:italic;")
-    } else {
-      helpText("Scope: all 78 features from the uploaded CSV.",
-               style = "font-size:0.82em; color:#666; font-style:italic;")
-    }
+    helpText("Scope: all 78 features from the current record.",
+             style = "font-size:0.82em; color:#666; font-style:italic;")
   })
 
   output$importancePlot <- renderPlot({    df <- importance_df()
