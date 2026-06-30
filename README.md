@@ -193,4 +193,7 @@ License information will be added before public release.
 
 ## Contact
 
-For questions about this project, please contact the project maintainer.
+For questions about this project, please contact:
+
+**Yu Shi**
+Email: ysherry.shi@mail.utoronto.ca
